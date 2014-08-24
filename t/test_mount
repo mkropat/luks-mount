@@ -1,0 +1,107 @@
+#!/bin/sh
+
+. lib/shpy/shpy
+. lib/shpy/shpy-shunit2
+
+as_module=1 . ./mount.crypto_LUKS
+
+setUp() {
+    for interface in ensure_directory luks_open luks_close mount pop_job_state record_job_state remove_job schedule_job_in; do
+        createSpy "$interface"
+    done
+}
+
+it_fails_when_passed_zero_args() {
+    main 2>/dev/null
+
+    assertFalse '`main` fails' $?
+}
+
+it_fails_when_passed_one_arg() {
+    main somearg 2>/dev/null
+
+    assertFalse '`main somearg` fails' $?
+}
+
+it_closes_luks_volume_if_mount_fails() {
+    createStub -r 1 mount
+
+    main /dev/somedevice /some/mountpoint
+
+    assertCalledOnceWith luks_close somedevice
+}
+
+it_uses_device_basename_as_volname() {
+    main /dev/somedevice /some/mountpoint
+
+    assertCalledOnceWith luks_open /dev/somedevice somedevice
+}
+
+it_strips_hyphen_from_device_basename_for_volname() {
+    main /dev/mapper/somevg-somelv /some/mountpoint
+
+    assertCalledOnceWith luks_open /dev/mapper/somevg-somelv somelv
+}
+
+it_calls_luks_open_and_mount_when_passed_device_and_mount_point() {
+    main /dev/somedevice /some/mountpoint
+
+    assertCalledOnceWith luks_open /dev/somedevice somedevice
+    assertCalledOnceWith mount /dev/mapper/somedevice /some/mountpoint
+}
+
+it_passes_options_to_mount_when_passed_more_than_two_args() {
+    main /dev/somedevice /some/mountpoint -o defaults,rw
+
+    assertCalledOnceWith mount /dev/mapper/somedevice /some/mountpoint -o defaults,rw
+}
+
+it_calls_schedule_job_when_mount_succeeds() {
+    TIMEOUT_MINUTES=15
+
+    main /dev/somedevice /some/mountpoint
+
+    assertCalledOnceWith schedule_job_in "$TIMEOUT_MINUTES" "umount.crypto_LUKS -w '/some/mountpoint'"
+}
+
+it_calls_record_job_with_jobid_from_schedule_job() {
+    createStub -o 123 schedule_job_in
+
+    main /dev/somedevice /some/mountpoint
+
+    assertCalledOnceWith record_job_state 123 somedevice
+}
+
+it_remove_old_job_when_pop_job_state_returns_jobid() {
+    createStub -o 123 pop_job_state
+
+    main /dev/somedevice /some/mountpoint
+
+    assertCalledOnceWith remove_job 123
+}
+
+oneTimeTearDown() {
+    cleanupSpies
+}
+
+
+##### Test Harness #####
+
+# suite() -- find and register tests to be run
+#   Derived from Gary Bernhardt's screencast #68
+#   (https://www.destroyallsoftware.com/screencasts/catalog/test-driving-shell-scripts)
+suite() {
+    local name tests
+    tests=$(grep ^it_ "$0" | cut -d '(' -f 1)
+    for name in $tests; do
+        suite_addTest "$name"
+    done
+}
+
+if hash shunit2 2>/dev/null; then
+    . shunit2
+else
+    echo 'Error: shunit2(1) could not be located. Please install it on your $PATH.' >&2
+    exit 1
+fi
+

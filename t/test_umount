@@ -1,0 +1,113 @@
+#!/bin/sh
+
+. lib/shpy/shpy
+. lib/shpy/shpy-shunit2
+
+as_module=1 . ./umount.crypto_LUKS
+
+setUp() {
+    for interface in lookup_device_by_mount_point luks_close umount umount_wait; do
+        createSpy "$interface"
+    done
+}
+
+it_fails_if_passed_zero_args() {
+    main 2>/dev/null
+
+    assertFalse '`main` fails' $?
+}
+
+it_doesnt_call_luks_close_when_umount_fails() {
+    createSpy -r 1 umount
+
+    main /some/mountpoint
+
+    assertCalledOnceWith umount /some/mountpoint
+    assertNeverCalled luks_close
+}
+
+it_calls_umount_and_luks_close_when_passed_crypt_device() {
+    main /dev/mapper/somevol
+
+    assertCalledOnceWith umount /dev/mapper/somevol
+    assertCalledOnceWith luks_close /dev/mapper/somevol
+}
+
+it_looks_up_device_in_proc_by_mount_point() {
+    createStub -o /dev/mapper/somevol lookup_device_by_mount_point
+
+    main /some/mountpoint
+
+    assertCalledOnceWith umount /some/mountpoint
+    assertCalledOnceWith luks_close /dev/mapper/somevol
+}
+
+it_looks_up_device_in_proc_by_absolute_mount_point() {
+    main mountpoint
+
+    assertCalledOnceWith lookup_device_by_mount_point "$(canonicalize_path mountpoint)"
+}
+
+it_calls_umount_wait_when_passed_w_option() {
+    main -w /dev/mapper/somevol
+
+    assertCalledOnceWith umount_wait /dev/mapper/somevol
+    assertCalledOnceWith luks_close /dev/mapper/somevol
+}
+
+it_doesnt_call_luks_close_when_umount_wait_fails() {
+    createStub -r 1 umount_wait
+
+    main -w /dev/mapper/somevol
+
+    assertCalledOnceWith umount_wait /dev/mapper/somevol
+    assertNeverCalled luks_close
+}
+
+it_displays_an_error_when_luks_close_fails() {
+    local output
+    createStub -r 1 luks_close
+
+    output="$(main /dev/mapper/somevol 2>&1)"
+
+    assertFalse '`main` fails' $?
+    printf '%s' "$output" | grep -q '^Error'
+    assertTrue 'begins with "Error:"' $?
+}
+
+it_displays_an_error_with_w_option_when_luks_close_fails() {
+    local output
+    createStub -r 1 luks_close
+
+    output="$(main -w /dev/mapper/somevol 2>&1)"
+
+    assertFalse '`main -w` fails' $?
+    printf '%s' "$output" | grep -q '^Error'
+    assertTrue 'begins with "Error:"' $?
+}
+
+oneTimeTearDown() {
+    cleanupSpies
+}
+
+
+##### Test Harness #####
+
+# suite() -- find and register tests to be run
+#   Derived from Gary Bernhardt's screencast #68
+#   (https://www.destroyallsoftware.com/screencasts/catalog/test-driving-shell-scripts)
+suite() {
+    local name tests
+    tests=$(grep ^it_ "$0" | cut -d '(' -f 1)
+    for name in $tests; do
+        suite_addTest "$name"
+    done
+}
+
+if hash shunit2 2>/dev/null; then
+    . shunit2
+else
+    echo 'Error: shunit2(1) could not be located. Please install it on your $PATH.' >&2
+    exit 1
+fi
+

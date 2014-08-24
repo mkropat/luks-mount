@@ -1,0 +1,93 @@
+#!/bin/sh
+
+JOB_DIR=/var/run/luks-mount
+MAPPER_DIR=/dev/mapper
+TIMEOUT_MINUTES=15
+
+main() {
+    if [ "$#" -lt 2 ]; then
+        echo "Usage: $0 DEVICE DIR [OPTIONS]" >&2
+        return 1
+    fi
+
+    local device="$1"
+    shift
+
+    local dir="$1"
+    shift
+
+    local volname="$(parse_volname "$device")"
+
+    luks_open "$device" "$volname" && (
+        mount_with_auto_umount "$@" ||
+        luks_close "$volname"
+    )
+}
+
+mount_with_auto_umount() {
+    local jobid
+
+    cancel_job_if_running "$volname"
+
+    local crypt_device="$MAPPER_DIR/$volname"
+    mount "$crypt_device" "$dir" "$@"      &&
+    jobid="$(register_unmount_job "$dir")" &&
+    record_job_state "$jobid" "$volname"
+}
+
+parse_volname() {
+    printf '%s' "$1" | sed -E 's/.*(\/|-)//'
+}
+
+register_unmount_job() {
+    schedule_job_in "$TIMEOUT_MINUTES" "umount.crypto_LUKS -w '$1'"
+}
+
+cancel_job_if_running() {
+    local jobid="$(pop_job_state "$1")"
+    if [ -n "$jobid" ]; then
+        remove_job "$jobid"
+    fi
+}
+
+##### External Interface #####
+
+luks_open() {
+    cryptsetup luksOpen "$1" "$2"
+}
+
+luks_close() {
+    cryptsetup close "$1"
+}
+
+schedule_job_in() {
+    printf '%s' "$2"               |
+        at now + "$1" minutes 2>&1 |
+        _parse_id_from_jobspec
+}
+
+_parse_id_from_jobspec() {
+    sed -nE 's/^job ([0-9]+).*/\1/ p'
+}
+
+record_job_state() {
+    mkdir -p -- "$JOB_DIR" &&
+    printf '%s' "$1" >| "$JOB_DIR/$2"
+}
+
+pop_job_state() {
+    local job_file="$JOB_DIR/$1"
+
+    if [ -f "$job_file" ]; then
+        cat "$job_file"      &&
+        rm -f -- "$job_file"
+    fi
+}
+
+remove_job() {
+    atrm -- "$1" 2>/dev/null
+}
+
+if [ -z "$as_module" ]; then
+    main "$@"
+fi

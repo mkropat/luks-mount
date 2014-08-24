@@ -1,0 +1,99 @@
+#!/bin/sh
+
+POLL_INTERVAL=10
+
+main() {
+    if [ $# -eq 0 ]; then
+        echo "Usage: $0 DIR|DEVICE" >&2
+        return 1
+    fi
+
+    local should_wait
+
+    while getopts w opt; do
+        case "$opt" in
+            w) should_wait=1 ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+    OPTIND=1
+
+    local crypt_volume="$(get_crypt_volume "$1")"
+
+    if [ -n "$should_wait" ]; then
+        crypt_umount "_wait" "$1" "$crypt_volume"
+    else
+        crypt_umount "" "$1" "$crypt_volume"
+    fi
+}
+
+crypt_umount() {
+    "umount$1" "$2" && (
+        luks_close "$3" ||
+        ( echo "Error: unable to close encrypted volume for '$2'" >&2; return 1 )
+    )
+}
+
+get_crypt_volume() {
+    lookup_device_by_mount_point "$(canonicalize_path "$1")" | must_exist ||
+    printf '%s' "$1"
+}
+
+must_exist() {
+    local line
+    read -r line
+
+    [ -n "$line" ] &&
+    printf '%s' "$line"
+}
+
+
+##### sh-realpath Lib Functions #####
+
+# Full source code and tests at: https://github.com/mkropat/sh-realpath
+
+canonicalize_path() {
+    if [ -d "$1" ]; then
+        _canonicalize_dir_path "$1"
+    else
+        _canonicalize_file_path "$1"
+    fi
+}
+_canonicalize_dir_path() {
+    (cd "$1" 2>/dev/null && pwd -P)
+}
+_canonicalize_file_path() {
+    local dir file
+    dir=$(dirname -- "$1")
+    file=$(basename -- "$1")
+    (cd "$dir" 2>/dev/null && printf '%s/%s\n' "$(pwd -P)" "$file")
+}
+
+
+##### External Interface #####
+
+lookup_device_by_mount_point() {
+    perl -lane "if (@F[1] eq '$1') { print @F[0]; exit }" /proc/mounts
+}
+
+luks_close() {
+    cryptsetup close "$1"
+}
+
+umount_wait() {
+    local output
+
+    while ! output="$(umount "$1" 2>&1)"; do
+        if ! printf '%s' "$output" | grep -q 'device is busy'; then
+            printf '%s\n' "$output" >&2
+            return 1
+        fi
+
+        sleep "$POLL_INTERVAL"
+    done
+}
+
+
+if [ -z "$as_module" ]; then
+    main "$@"
+fi

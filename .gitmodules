@@ -1,0 +1,3 @@
+[submodule "lib/shpy"]
+	path = lib/shpy
+	url = https://github.com/mkropat/shpy.git
