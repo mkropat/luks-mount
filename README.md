@@ -2,7 +2,7 @@
 
 *Teach mount(8) to mount LUKS containers directly*
 
-Building on the technique pioneered by [Tobias
+Building on [the technique pioneered by Tobias
 Kienzler](http://unix.stackexchange.com/a/52183/49971), **luks-mount** extends
 the `mount` command so it can mount LUKS volumes directly, handling all the
 `cryptsetup` work itself.
@@ -15,6 +15,14 @@ In other words, this:
 Becomes simplified to:
 
     mount /dev/mapper/somevg-somevol /some/mountpoint
+    
+Or simply:
+
+    mount /some/mountpoint
+    
+Once you've added an entry to `/etc/fstab` like:
+
+    UUID=... /some/mountpoint crypto_LUKS defaults,noauto 0 1
 
 ### Automatic Unmounting
 
