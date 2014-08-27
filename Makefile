@@ -47,3 +47,47 @@ uninstall:
 
 clean:
 	-rm -f $(PAGES) README.man.md
+
+
+##### make dist #####
+
+.PHONY: dist
+dist: $(PACKAGE_FILE)
+
+$(PACKAGE_FILE): $(FILES)
+	tar --transform 's,^,$(PACKAGE_DIR)/,S' -cjf "$@" $^
+
+
+### make deb deb-src deb-clean ###
+
+.PHONY: deb deb-src deb-clean
+
+deb: luks-mount_$(VERSION)-1_all.deb
+
+luks-mount_$(VERSION)-1_all.deb: $(PACKAGE_FILE) debian/copyright
+	@hash dpkg-buildpackage 2>/dev/null || { \
+		echo "ERROR: can't find dpkg-buildpackage. Did you run \`sudo apt-get install debhelper devscripts\`?" >&2; exit 1; \
+	}
+	dpkg-buildpackage -b -tc
+	mv "../$@" .
+	mv ../luks-mount_$(VERSION)-1_*.changes .
+
+deb-src: luks-mount_$(VERSION)-1_source.changes
+
+luks-mount_$(VERSION)-1_source.changes: $(PACKAGE_FILE) $(PACKAGE_ORIG_FILE) debian/copyright
+	@hash dpkg-buildpackage 2>/dev/null || { echo "ERROR: can't find debuild. Did you run \`sudo apt-get install debhelper devscripts\`?" >&2; exit 1; }
+	tar xf "$<"
+	cp -r debian "$(PACKAGE_DIR)"
+	(cd "$(PACKAGE_DIR)"; debuild -S)
+
+$(PACKAGE_ORIG_FILE): $(PACKAGE_FILE)
+	cp "$<" "$@"
+
+debian/copyright: LICENSE.txt
+	cp "$<" "$@"
+
+deb-clean:
+	-debian/rules clean
+	-rm -f *.build *.changes *.dsc *.debian.tar.gz *.orig.tar.bz2
+	-rm -rf $(PACKAGE_DIR)
+	-rm -f debian/copyright

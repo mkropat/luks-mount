@@ -1,0 +1,5 @@
+luks-mount (0.1-1) trusty; urgency=low
+
+  * Initial release
+
+ -- Michael Kropat <mail@michael.kropat.name>  Tue, 26 Aug 2014 21:05:40 -0400
