@@ -3,7 +3,7 @@ PREFIX	= /usr/local
 SBIN	= $(DESTDIR)/sbin
 MAN	= $(DESTDIR)/$(PREFIX)/share/man
 
-VERSION			= 0.1
+VERSION			= 0.2
 PACKAGE_DIR		= luks-mount-$(VERSION)
 PACKAGE_FILE		= luks-mount_$(VERSION).tar.bz2
 PACKAGE_ORIG_FILE	= luks-mount_$(VERSION).orig.tar.bz2
@@ -11,8 +11,8 @@ PACKAGE_ORIG_FILE	= luks-mount_$(VERSION).orig.tar.bz2
 AUTHOR	= Michael Kropat <mail@michael.kropat.name>
 DATE	= $(shell date '+%b %d, %Y')
 SCRIPTS	= mount.crypto_LUKS umount.crypto_LUKS
+FILES	= t README.md LICENSE.txt Makefile lib $(SCRIPTS)
 PAGES	= mount.crypto_LUKS.8 umount.crypto_LUKS.8
-FILES	= t README.md LICENSE.txt Makefile $(SCRIPTS)
 
 .PHONY: all check test install uninstall clean
 
