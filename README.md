@@ -15,11 +15,11 @@ In other words, this:
 Becomes simplified to:
 
     mount /dev/mapper/somevg-somevol /some/mountpoint
-    
+
 Or simply:
 
     mount /some/mountpoint
-    
+
 Once you've added an entry to `/etc/fstab` like:
 
     UUID=... /some/mountpoint crypto_LUKS defaults,noauto 0 1
@@ -40,8 +40,23 @@ unmount the encrypted volume and automatically close it for you.
 
 ### Installation
 
-To install the scripts into `/sbin`, run:
+#### Ubuntu and Linux Mint
 
-    sudo make install
+    sudo add-apt-repository ppa:mkropat/ppa
+    sudo apt-get update
+    sudo apt-get install luks-mount
 
-`.deb` and `.rpm` packages are in the works.
+#### Debian and Friends
+
+    git clone https://github.com/mkropat/luks-mount.git
+    cd luks-mount
+    make deb
+    sudo dpkg -i luks-mount*all.deb
+    sudo apt-get install -f	# if there were missing dependencies
+
+#### From Source
+
+    git clone https://github.com/mkropat/luks-mount.git
+    cd luks-mount
+    make && sudo make install
+
