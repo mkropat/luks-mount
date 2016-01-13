@@ -6,7 +6,7 @@
 as_module=1 . ./umount.crypto_LUKS
 
 setUp() {
-    for interface in lookup_device_by_mount_point luks_close umount umount_wait; do
+    for interface in lookup_device_by_mount_point luks_close umount_now umount_wait; do
         createSpy "$interface"
     done
 }
@@ -17,19 +17,19 @@ it_fails_if_passed_zero_args() {
     assertFalse '`main` fails' $?
 }
 
-it_doesnt_call_luks_close_when_umount_fails() {
-    createSpy -r 1 umount
+it_doesnt_call_luks_close_when_umount_now_fails() {
+    createSpy -r 1 umount_now
 
     main /some/mountpoint
 
-    assertCalledOnceWith umount /some/mountpoint
+    assertCalledOnceWith umount_now /some/mountpoint
     assertNeverCalled luks_close
 }
 
-it_calls_umount_and_luks_close_when_passed_crypt_device() {
+it_calls_umount_now_and_luks_close_when_passed_crypt_device() {
     main /dev/mapper/somevol
 
-    assertCalledOnceWith umount /dev/mapper/somevol
+    assertCalledOnceWith umount_now /dev/mapper/somevol
     assertCalledOnceWith luks_close /dev/mapper/somevol
 }
 
@@ -38,7 +38,7 @@ it_looks_up_device_in_proc_by_mount_point() {
 
     main /some/mountpoint
 
-    assertCalledOnceWith umount /some/mountpoint
+    assertCalledOnceWith umount_now /some/mountpoint
     assertCalledOnceWith luks_close /dev/mapper/somevol
 }
 

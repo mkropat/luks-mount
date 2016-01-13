@@ -47,13 +47,13 @@ it_calls_luks_open_and_mount_when_passed_device_and_mount_point() {
     main /dev/somedevice /some/mountpoint
 
     assertCalledOnceWith luks_open /dev/somedevice somedevice
-    assertCalledOnceWith mount /dev/mapper/somedevice /some/mountpoint
+    assertCalledOnceWith mount /dev/mapper/somedevice /some/mountpoint -o helper=crypto_LUKS
 }
 
 it_passes_options_to_mount_when_passed_more_than_two_args() {
     main /dev/somedevice /some/mountpoint -o defaults,rw
 
-    assertCalledOnceWith mount /dev/mapper/somedevice /some/mountpoint -o defaults,rw
+    assertCalledOnceWith mount /dev/mapper/somedevice /some/mountpoint -o defaults,rw,helper=crypto_LUKS
 }
 
 it_calls_schedule_job_when_mount_succeeds() {

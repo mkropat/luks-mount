@@ -21,14 +21,14 @@ main() {
     local crypt_volume="$(get_crypt_volume "$1")"
 
     if [ -n "$should_wait" ]; then
-        crypt_umount "_wait" "$1" "$crypt_volume"
+        crypt_umount wait "$1" "$crypt_volume"
     else
-        crypt_umount "" "$1" "$crypt_volume"
+        crypt_umount now "$1" "$crypt_volume"
     fi
 }
 
 crypt_umount() {
-    "umount$1" "$2" && (
+    "umount_$1" "$2" && (
         luks_close "$3" ||
         ( echo "Error: unable to close encrypted volume for '$2'" >&2; return 1 )
     )
@@ -80,10 +80,14 @@ luks_close() {
     cryptsetup close "$1"
 }
 
+umount_now() {
+    umount -i "$@"
+}
+
 umount_wait() {
     local output
 
-    while ! output="$(umount "$1" 2>&1)"; do
+    while ! output="$(umount -i "$1" 2>&1)"; do
         if ! printf '%s' "$output" | grep -q 'device is busy'; then
             printf '%s\n' "$output" >&2
             return 1

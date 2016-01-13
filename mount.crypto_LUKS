@@ -18,8 +18,14 @@ main() {
 
     local volname="$(parse_volname "$device")"
 
+    local options="defaults,helper=crypto_LUKS"
+    if [ "$1" = "-o" ] && [ $# -gt 1 ]; then
+        options="$2,helper=crypto_LUKS"
+        shift 2
+    fi
+
     luks_open "$device" "$volname" && (
-        mount_with_auto_umount "$@" ||
+        mount_with_auto_umount -o "$options" "$@" ||
         luks_close "$volname"
     )
 }
@@ -30,8 +36,8 @@ mount_with_auto_umount() {
     cancel_job_if_running "$volname"
 
     local crypt_device="$MAPPER_DIR/$volname"
-    mount "$crypt_device" "$dir" "$@"      &&
-    jobid="$(register_unmount_job "$dir")" &&
+    mount "$crypt_device" "$dir" -o "$options" "$@" &&
+    jobid="$(register_unmount_job "$dir")"          &&
     record_job_state "$jobid" "$volname"
 }
 
